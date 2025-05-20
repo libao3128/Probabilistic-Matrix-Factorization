@@ -14,6 +14,9 @@ class PMF(object):
 
         self.w_Item = None  # Item feature vectors
         self.w_User = None  # User feature vectors
+        self.w_Item_opt = None # Best Item feature vectors
+        self.w_User_opt = None # Best User feature vectors
+        self.min_rmse = float('inf')  # Minimum RMSE
 
         self.rmse_train = []
         self.rmse_test = []
@@ -103,11 +106,16 @@ class PMF(object):
                                                   self.w_Item[np.array(test_vec[:, 1], dtype='int32'), :]),
                                       axis=1)  # mean_inv subtracted
                     rawErr = pred_out - test_vec[:, 2] + self.mean_inv
-                    self.rmse_test.append(np.linalg.norm(rawErr) / np.sqrt(pairs_test))
+                    rmse_test = np.linalg.norm(rawErr) / np.sqrt(pairs_test)
+                    if rmse_test < self.min_rmse:
+                        self.min_rmse = rmse_test
+                        self.w_Item_opt = self.w_Item.copy()
+                        self.w_User_opt = self.w_User.copy()
+                    self.rmse_test.append(rmse_test)
 
                     # Print info
                     if batch == self.num_batches - 1:
-                        print('Training RMSE: %f, Test RMSE %f' % (self.rmse_train[-1], self.rmse_test[-1]))
+                        print(f'Epoch {self.epoch} | Training RMSE: {self.rmse_train[-1]} , Test RMSE {self.rmse_test[-1]}')
 
     def predict(self, invID):
         return np.dot(self.w_Item, self.w_User[int(invID), :]) + self.mean_inv  # numpy.dot 点乘
@@ -143,3 +151,21 @@ class PMF(object):
             recall_acc += intersection_cnt.get(inv, 0) / float(invPairs_cnt[int(inv)])
 
         return precision_acc / len(inv_lst), recall_acc / len(inv_lst)
+
+    def save_model(self, model_path):
+        np.savez(
+            model_path,
+            w_Item = self.w_Item,
+            w_Item_opt = self.w_Item_opt,
+            w_User = self.w_User,
+            w_User_opt = self.w_User_opt,
+            mean_inv = self.mean_inv,
+        )
+        
+    def load_model(self, model_path):
+        data = np.load(model_path)
+        self.w_Item = data['w_Item']
+        self.w_User = data['w_User']
+        self.w_Item_opt = data['w_Item_opt']
+        self.w_User_opt = data['w_User_opt']
+        self.mean_inv = data['mean_inv']
