@@ -125,6 +125,7 @@ class PMF(object):
                     else:
                         self.no_improvement += 1
                         if self.no_improvement >= self.patience:
+                            print(f"Early stopping at epoch {self.epoch} with RMSE {self.min_rmse}")
                             return
 
     def predict(self, invID):
