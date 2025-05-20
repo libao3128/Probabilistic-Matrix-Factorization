@@ -3,7 +3,7 @@ import numpy as np
 
 
 class PMF(object):
-    def __init__(self, num_feat=10, epsilon=1, _lambda=0.1, momentum=0.8, maxepoch=20, num_batches=10, batch_size=1000):
+    def __init__(self, num_feat=10, epsilon=1, _lambda=0.1, momentum=0.8, maxepoch=20, num_batches=10, batch_size=1000, patience=5):
         self.num_feat = num_feat  # Number of latent features,
         self.epsilon = epsilon  # learning rate,
         self._lambda = _lambda  # L2 regularization,
@@ -17,7 +17,10 @@ class PMF(object):
         self.w_Item_opt = None # Best Item feature vectors
         self.w_User_opt = None # Best User feature vectors
         self.min_rmse = float('inf')  # Minimum RMSE
-
+        
+        self.patience = 0 # Early stopping patience
+        self.no_improvement = 0 # No improvement counter
+        
         self.rmse_train = []
         self.rmse_test = []
 
@@ -107,15 +110,22 @@ class PMF(object):
                                       axis=1)  # mean_inv subtracted
                     rawErr = pred_out - test_vec[:, 2] + self.mean_inv
                     rmse_test = np.linalg.norm(rawErr) / np.sqrt(pairs_test)
-                    if rmse_test < self.min_rmse:
-                        self.min_rmse = rmse_test
-                        self.w_Item_opt = self.w_Item.copy()
-                        self.w_User_opt = self.w_User.copy()
                     self.rmse_test.append(rmse_test)
 
                     # Print info
                     if batch == self.num_batches - 1:
                         print(f'Epoch {self.epoch} | Training RMSE: {self.rmse_train[-1]} , Test RMSE {self.rmse_test[-1]}')
+
+                    # Early stopping
+                    if rmse_test < self.min_rmse:
+                        self.min_rmse = rmse_test
+                        self.w_Item_opt = self.w_Item.copy()
+                        self.w_User_opt = self.w_User.copy()
+                        self.no_improvement = 0
+                    else:
+                        self.no_improvement += 1
+                        if self.no_improvement >= self.patience:
+                            return
 
     def predict(self, invID):
         return np.dot(self.w_Item, self.w_User[int(invID), :]) + self.mean_inv  # numpy.dot 点乘
@@ -130,6 +140,7 @@ class PMF(object):
             self.maxepoch = parameters.get("maxepoch", 20)
             self.num_batches = parameters.get("num_batches", 10)
             self.batch_size = parameters.get("batch_size", 1000)
+            self.patience = parameters.get("patience", 5)
 
     def topK(self, test_vec, k=10):
         inv_lst = np.unique(test_vec[:, 0])
