@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 import numpy as np
-
+import time
 
 class PMF(object):
     def __init__(self, num_feat=10, epsilon=1, _lambda=0.1, momentum=0.8, maxepoch=20, num_batches=10, batch_size=1000, patience=5):
@@ -27,6 +27,7 @@ class PMF(object):
     # ***Fit the model with train_tuple and evaluate RMSE on both train and test data.  ***********#
     # ***************** train_vec=TrainData, test_vec=TestData*************#
     def fit(self, train_vec, test_vec):
+        start_time = time.time()
         # mean subtraction
         self.mean_inv = np.mean(train_vec[:, 2])  # 评分平均值
 
@@ -127,7 +128,9 @@ class PMF(object):
                         if self.no_improvement >= self.patience:
                             print(f"Early stopping at epoch {self.epoch} with RMSE {self.min_rmse}")
                             return
-
+        end_time = time.time()
+        print(f"Training time: {end_time - start_time} seconds")
+        
     def predict(self, invID):
         return np.dot(self.w_Item, self.w_User[int(invID), :]) + self.mean_inv  # numpy.dot 点乘
 
